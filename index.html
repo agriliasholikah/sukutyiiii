@@ -107,11 +107,20 @@
             color: #ffff00;
             text-shadow: 0 0 5px rgba(255, 255, 0, 0.5);
         }
+        
+        /* Container untuk Foto Logo JPEG */
         .lives-container {
-            color: #ff3366;
-            font-size: 16px;
-            letter-spacing: 2px;
-            text-shadow: 0 0 5px rgba(255, 51, 102, 0.6);
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .heart-img {
+            width: 25px; /* Sesuaikan ukuran logo di sini */
+            height: 25px;
+            object-fit: cover;
+            border-radius: 4px; /* Membuat sudut gambar sedikit melengkung */
+            border: 1px solid #ff3333;
+            transition: opacity 0.3s ease;
         }
     </style>
 </head>
@@ -123,8 +132,12 @@
                 <div>WAKTU: <span id="timerVal">0</span>s</div>
                 <div class="level-badge">LV: <span id="levelVal">1</span></div>
             </div>
-            <!-- Tiga logo nyawa di sisi kanan atas -->
-            <div class="lives-container" id="livesVal">❤️❤️❤️</div>
+            <!-- Container tempat 3 foto logo JPEG dirender -->
+            <div class="lives-container" id="livesVal">
+                <img class="heart-img" id="heart-0" src="" alt="L1">
+                <img class="heart-img" id="heart-1" src="" alt="L2">
+                <img class="heart-img" id="heart-2" src="" alt="L3">
+            </div>
         </div>
         <canvas id="gameCanvas" width="400" height="500"></canvas>
         
@@ -143,7 +156,14 @@
         const ctx = canvas.getContext("2d");
         const timerVal = document.getElementById("timerVal");
         const levelVal = document.getElementById("levelVal");
-        const livesVal = document.getElementById("livesVal");
+        
+        // ========================================================
+        // SILAHKAN GANTI NAMA FILE JPEG ANDA DI BAWAH INI
+        // ========================================================
+        const LOGO_1 = "logo1.jpg"; 
+        const LOGO_2 = "logo2.jpg"; 
+        const LOGO_3 = "logo3.jpg"; 
+        // ========================================================
 
         let survivalTime = 0;
         let currentLevel = 1;
@@ -152,16 +172,14 @@
         let gameInterval;
         let keys = { up: false, down: false, left: false, right: false };
         let levelUpAnimTimer = 0;
-        let immunityTimer = 0; // Durasi kebal sementara saat respawn
+        let immunityTimer = 0; 
 
-        // Karakter Pemain (Manusia Senter)
         const player = {
             x: 200, y: 250,
             size: 16, speed: 4,
             color: "#00ffff"
         };
 
-        // Hantu Sukutyi (Pengejar)
         const sukutyi = {
             x: 30, y: 30,
             size: 20, speed: 2.2,
@@ -170,14 +188,12 @@
             glow: 0
         };
 
-        // Koin Energi
         const item = {
             x: Math.random() * 360 + 20,
             y: Math.random() * 460 + 20,
             size: 10
         };
 
-        // Touch Control D-Pad Setup
         function setupTouchBtn(id, key) {
             const btn = document.getElementById(id);
             btn.addEventListener("touchstart", (e) => { e.preventDefault(); keys[key] = true; checkRestart(); });
@@ -192,7 +208,6 @@
         setupTouchBtn("btnLeft", "left");
         setupTouchBtn("btnRight", "right");
 
-        // Keyboard Support
         window.addEventListener("keydown", (e) => {
             if(gameOver) { resetGame(); return; }
             if(e.key === "ArrowUp" || e.key === "w") keys.up = true;
@@ -211,9 +226,21 @@
             if(gameOver) resetGame();
         }
 
+        // Fungsi Update Tampilan Gambar JPEG Nyawa
         function updateLivesUI() {
-            // Merender jumlah logo hati sesuai sisa nyawa
-            livesVal.innerText = "❤️".repeat(lives) + "🖤".repeat(3 - lives);
+            const h1 = document.getElementById("heart-0");
+            const h2 = document.getElementById("heart-1");
+            const h3 = document.getElementById("heart-2");
+
+            // Pasang gambar JPEG ke elemen masing-masing
+            if(h1) h1.src = LOGO_1;
+            if(h2) h2.src = LOGO_2;
+            if(h3) h3.src = LOGO_3;
+
+            // Atur opacity (transparansi) berdasarkan jumlah sisa nyawa
+            if(h1) h1.style.opacity = (lives >= 1) ? "1" : "0.1";
+            if(h2) h2.style.opacity = (lives >= 2) ? "1" : "0.1";
+            if(h3) h3.style.opacity = (lives >= 3) ? "1" : "0.1";
         }
 
         function resetGame() {
@@ -229,6 +256,7 @@
             
             timerVal.innerText = survivalTime;
             levelVal.innerText = currentLevel;
+            
             updateLivesUI();
             
             gameOver = false;
@@ -256,7 +284,6 @@
             requestAnimationFrame(update);
         }
 
-        // Loop Game
         function update() {
             if (gameOver) {
                 ctx.fillStyle = "rgba(10, 0, 0, 0.9)";
@@ -271,7 +298,6 @@
                 ctx.font = "bold 20px monospace";
                 ctx.fillText(`Mencapai Level: ${currentLevel}`, canvas.width / 2, canvas.height / 2 - 10);
 
-                // Jumpscare face
                 ctx.fillStyle = "#fff";
                 ctx.beginPath();
                 ctx.arc(canvas.width/2 - 40, canvas.height/2 + 50, 15, 0, Math.PI*2);
@@ -290,16 +316,13 @@
                 return;
             }
 
-            // Jalankan hitung mundur imunitas jika ada
             if (immunityTimer > 0) immunityTimer--;
 
-            // 1. Pergerakan Player
             if (keys.up && player.y > player.size) player.y -= player.speed;
             if (keys.down && player.y < canvas.height - player.size) player.y += player.speed;
             if (keys.left && player.x > player.size) player.x -= player.speed;
             if (keys.right && player.x < canvas.width - player.size) player.x += player.speed;
 
-            // 2. AI Hantu Sukutyi
             let dx = player.x - sukutyi.x;
             let dy = player.y - sukutyi.y;
             let distance = Math.sqrt(dx * dx + dy * dy);
@@ -309,7 +332,6 @@
                 sukutyi.y += (dy / distance) * sukutyi.speed;
             }
 
-            // 3. Ambil Item Energi
             let itemDist = Math.sqrt((player.x - item.x)**2 + (player.y - item.y)**2);
             if (itemDist < player.size + item.size) {
                 item.x = Math.random() * (canvas.width - 40) + 20;
@@ -317,7 +339,6 @@
                 sukutyi.speed = Math.max(1.5 + (currentLevel * 0.2), sukutyi.speed - 1.0); 
             }
 
-            // 4. Deteksi Tertangkap (Pengurangan Nyawa & Respawn)
             if (distance < player.size + sukutyi.size && immunityTimer === 0) {
                 lives--;
                 updateLivesUI();
@@ -327,38 +348,32 @@
                 if (lives <= 0) {
                     gameOver = true;
                 } else {
-                    // Reset posisi sementara tanpa reset skor/level (Respawn)
                     player.x = 200;
                     player.y = 250;
                     sukutyi.x = 30;
                     sukutyi.y = 30;
-                    immunityTimer = 90; // Kebal selama 90 frame (~1.5 detik)
+                    immunityTimer = 90; 
                 }
             }
 
-            // 5. PROSES RENDERING GRAFIK
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Efek Flashlight / Senter Player
             let gradient = ctx.createRadialGradient(player.x, player.y, 10, player.x, player.y, 135);
             gradient.addColorStop(0, 'rgba(255, 255, 230, 0.35)');
             gradient.addColorStop(1, 'rgba(5, 5, 10, 0.98)');
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Render Item Jimat
             ctx.fillStyle = "#00ff00";
             ctx.shadowColor = "#00ff00"; ctx.shadowBlur = 10;
             ctx.beginPath(); ctx.arc(item.x, item.y, item.size, 0, Math.PI*2); ctx.fill();
 
-            // Render Player (Efek berkedip jika sedang kebal)
             if (immunityTimer === 0 || Math.floor(immunityTimer / 5) % 2 === 0) {
                 ctx.fillStyle = player.color;
                 ctx.shadowColor = player.color; ctx.shadowBlur = 8;
                 ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
             }
 
-            // Render Hantu Sukutyi
             sukutyi.glow += 0.1;
             let dynamicGlow = Math.abs(Math.sin(sukutyi.glow)) * 15 + 5;
             ctx.fillStyle = sukutyi.color;
@@ -367,13 +382,11 @@
             ctx.arc(sukutyi.x, sukutyi.y, sukutyi.size, 0, Math.PI*2);
             ctx.fill();
             
-            // Efek Mata Merah
             ctx.shadowBlur = 0;
             ctx.fillStyle = "#ffffff";
             ctx.fillRect(sukutyi.x - (sukutyi.size/3), sukutyi.y - 4, 4, 4);
             ctx.fillRect(sukutyi.x + (sukutyi.size/3) - 4, sukutyi.y - 4, 4, 4);
 
-            // Teks "LEVEL UP!"
             if (levelUpAnimTimer > 0) {
                 levelUpAnimTimer--;
                 ctx.fillStyle = `rgba(255, 255, 0, ${levelUpAnimTimer / 90})`;
@@ -388,7 +401,6 @@
             requestAnimationFrame(update);
         }
 
-        // Jalankan game otomatis di awal
         resetGame();
     </script>
 </body>
