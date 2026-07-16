@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-    <title>Sukutyi Escape - Level Edition</title>
+    <title>Sukutyi Escape - Level & Lives Edition</title>
     <style>
         * {
             margin: 0;
@@ -80,25 +80,38 @@
         #btnLeft  { top: 55px; left: 0; }
         #btnRight { top: 55px; right: 0; }
 
+        /* Panel UI Atas */
         .score-ui {
             position: absolute;
             top: 15px;
             left: 15px;
+            right: 15px;
             color: #ff3333;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
-            background: rgba(0,0,0,0.7);
-            padding: 5px 12px;
+            background: rgba(0,0,0,0.85);
+            padding: 8px 12px;
             border-radius: 4px;
             border-left: 3px solid #ff3333;
             pointer-events: none;
             z-index: 5;
             display: flex;
-            gap: 15px;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .ui-stats {
+            display: flex;
+            gap: 12px;
         }
         .level-badge {
             color: #ffff00;
             text-shadow: 0 0 5px rgba(255, 255, 0, 0.5);
+        }
+        .lives-container {
+            color: #ff3366;
+            font-size: 16px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px rgba(255, 51, 102, 0.6);
         }
     </style>
 </head>
@@ -106,8 +119,12 @@
 
     <div class="game-container" id="gameWindow">
         <div class="score-ui">
-            <div>WAKTU: <span id="timerVal">0</span>s</div>
-            <div class="level-badge">LEVEL: <span id="levelVal">1</span></div>
+            <div class="ui-stats">
+                <div>WAKTU: <span id="timerVal">0</span>s</div>
+                <div class="level-badge">LV: <span id="levelVal">1</span></div>
+            </div>
+            <!-- Tiga logo nyawa di sisi kanan atas -->
+            <div class="lives-container" id="livesVal">❤️❤️❤️</div>
         </div>
         <canvas id="gameCanvas" width="400" height="500"></canvas>
         
@@ -126,14 +143,16 @@
         const ctx = canvas.getContext("2d");
         const timerVal = document.getElementById("timerVal");
         const levelVal = document.getElementById("levelVal");
-        const gameWindow = document.getElementById("gameWindow");
+        const livesVal = document.getElementById("livesVal");
 
         let survivalTime = 0;
         let currentLevel = 1;
+        let lives = 3;
         let gameOver = false;
         let gameInterval;
         let keys = { up: false, down: false, left: false, right: false };
-        let levelUpAnimTimer = 0; // Untuk animasi teks "LEVEL UP"
+        let levelUpAnimTimer = 0;
+        let immunityTimer = 0; // Durasi kebal sementara saat respawn
 
         // Karakter Pemain (Manusia Senter)
         const player = {
@@ -146,12 +165,12 @@
         const sukutyi = {
             x: 30, y: 30,
             size: 20, speed: 2.2,
-            baseSize: 20, // Ukuran awal untuk kalkulasi level
+            baseSize: 20,
             color: "#ff3333",
             glow: 0
         };
 
-        // Koin Energi (Untuk memperlambat hantu sejenak)
+        // Koin Energi
         const item = {
             x: Math.random() * 360 + 20,
             y: Math.random() * 460 + 20,
@@ -173,7 +192,7 @@
         setupTouchBtn("btnLeft", "left");
         setupTouchBtn("btnRight", "right");
 
-        // Keyboard Support untuk PC
+        // Keyboard Support
         window.addEventListener("keydown", (e) => {
             if(gameOver) { resetGame(); return; }
             if(e.key === "ArrowUp" || e.key === "w") keys.up = true;
@@ -192,6 +211,11 @@
             if(gameOver) resetGame();
         }
 
+        function updateLivesUI() {
+            // Merender jumlah logo hati sesuai sisa nyawa
+            livesVal.innerText = "❤️".repeat(lives) + "🖤".repeat(3 - lives);
+        }
+
         function resetGame() {
             player.x = 200; player.y = 250;
             sukutyi.x = 30; sukutyi.y = 30;
@@ -199,9 +223,14 @@
             sukutyi.speed = 2.2;
             survivalTime = 0;
             currentLevel = 1;
+            lives = 3;
             levelUpAnimTimer = 0;
+            immunityTimer = 0;
+            
             timerVal.innerText = survivalTime;
             levelVal.innerText = currentLevel;
+            updateLivesUI();
+            
             gameOver = false;
             keys = { up: false, down: false, left: false, right: false };
             
@@ -211,16 +240,13 @@
                     survivalTime++; 
                     timerVal.innerText = survivalTime; 
                     
-                    // Kecepatan hantu naik tiap detik secara pasif
                     sukutyi.speed += 0.08; 
 
-                    // SISTEM LEVEL: Naik level tiap kelipatan 15 detik
                     if (survivalTime % 15 === 0) {
                         currentLevel++;
                         levelVal.innerText = currentLevel;
-                        levelUpAnimTimer = 90; // Trigger teks Level Up selama 90 frame
+                        levelUpAnimTimer = 90; 
                         
-                        // Hantu bertambah cepat & bertambah besar secara permanen tiap naik level
                         sukutyi.speed += 0.5;
                         sukutyi.size = sukutyi.baseSize + (currentLevel * 2); 
                     }
@@ -245,7 +271,7 @@
                 ctx.font = "bold 20px monospace";
                 ctx.fillText(`Mencapai Level: ${currentLevel}`, canvas.width / 2, canvas.height / 2 - 10);
 
-                // Wajah hantu jumpscare simple abstrak
+                // Jumpscare face
                 ctx.fillStyle = "#fff";
                 ctx.beginPath();
                 ctx.arc(canvas.width/2 - 40, canvas.height/2 + 50, 15, 0, Math.PI*2);
@@ -264,7 +290,10 @@
                 return;
             }
 
-            // 1. Pergerakan Player + Pembatas Dinding Canvas
+            // Jalankan hitung mundur imunitas jika ada
+            if (immunityTimer > 0) immunityTimer--;
+
+            // 1. Pergerakan Player
             if (keys.up && player.y > player.size) player.y -= player.speed;
             if (keys.down && player.y < canvas.height - player.size) player.y += player.speed;
             if (keys.left && player.x > player.size) player.x -= player.speed;
@@ -285,14 +314,26 @@
             if (itemDist < player.size + item.size) {
                 item.x = Math.random() * (canvas.width - 40) + 20;
                 item.y = Math.random() * (canvas.height - 40) + 20;
-                // Bikin hantu melambat, batas lambatnya disesuaikan dengan level sekarang
                 sukutyi.speed = Math.max(1.5 + (currentLevel * 0.2), sukutyi.speed - 1.0); 
             }
 
-            // 4. Deteksi Tertangkap (Game Over)
-            if (distance < player.size + sukutyi.size) {
-                gameOver = true;
-                if (navigator.vibrate) navigator.vibrate([200, 100, 200]); 
+            // 4. Deteksi Tertangkap (Pengurangan Nyawa & Respawn)
+            if (distance < player.size + sukutyi.size && immunityTimer === 0) {
+                lives--;
+                updateLivesUI();
+                
+                if (navigator.vibrate) navigator.vibrate([150, 50, 150]);
+
+                if (lives <= 0) {
+                    gameOver = true;
+                } else {
+                    // Reset posisi sementara tanpa reset skor/level (Respawn)
+                    player.x = 200;
+                    player.y = 250;
+                    sukutyi.x = 30;
+                    sukutyi.y = 30;
+                    immunityTimer = 90; // Kebal selama 90 frame (~1.5 detik)
+                }
             }
 
             // 5. PROSES RENDERING GRAFIK
@@ -305,15 +346,17 @@
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Render Item Jimat (Hijau Menyala)
+            // Render Item Jimat
             ctx.fillStyle = "#00ff00";
             ctx.shadowColor = "#00ff00"; ctx.shadowBlur = 10;
             ctx.beginPath(); ctx.arc(item.x, item.y, item.size, 0, Math.PI*2); ctx.fill();
 
-            // Render Player (Manusia)
-            ctx.fillStyle = player.color;
-            ctx.shadowColor = player.color; ctx.shadowBlur = 8;
-            ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
+            // Render Player (Efek berkedip jika sedang kebal)
+            if (immunityTimer === 0 || Math.floor(immunityTimer / 5) % 2 === 0) {
+                ctx.fillStyle = player.color;
+                ctx.shadowColor = player.color; ctx.shadowBlur = 8;
+                ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
+            }
 
             // Render Hantu Sukutyi
             sukutyi.glow += 0.1;
@@ -324,13 +367,13 @@
             ctx.arc(sukutyi.x, sukutyi.y, sukutyi.size, 0, Math.PI*2);
             ctx.fill();
             
-            // Efek Mata Merah Sukutyi (Posisinya otomatis menyesuaikan ukuran hantu)
+            // Efek Mata Merah
             ctx.shadowBlur = 0;
             ctx.fillStyle = "#ffffff";
             ctx.fillRect(sukutyi.x - (sukutyi.size/3), sukutyi.y - 4, 4, 4);
             ctx.fillRect(sukutyi.x + (sukutyi.size/3) - 4, sukutyi.y - 4, 4, 4);
 
-            // Teks Kilatan "LEVEL UP!" jika naik level
+            // Teks "LEVEL UP!"
             if (levelUpAnimTimer > 0) {
                 levelUpAnimTimer--;
                 ctx.fillStyle = `rgba(255, 255, 0, ${levelUpAnimTimer / 90})`;
