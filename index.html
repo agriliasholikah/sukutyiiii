@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-    <title>Sukutyi Escape - Mobile Edition</title>
+    <title>Sukutyi Escape - Level Edition</title>
     <style>
         * {
             margin: 0;
@@ -85,21 +85,30 @@
             top: 15px;
             left: 15px;
             color: #ff3333;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.7);
             padding: 5px 12px;
             border-radius: 4px;
             border-left: 3px solid #ff3333;
             pointer-events: none;
             z-index: 5;
+            display: flex;
+            gap: 15px;
+        }
+        .level-badge {
+            color: #ffff00;
+            text-shadow: 0 0 5px rgba(255, 255, 0, 0.5);
         }
     </style>
 </head>
 <body>
 
     <div class="game-container" id="gameWindow">
-        <div class="score-ui">WAKTU BERTAHAN: <span id="timerVal">0</span>s</div>
+        <div class="score-ui">
+            <div>WAKTU: <span id="timerVal">0</span>s</div>
+            <div class="level-badge">LEVEL: <span id="levelVal">1</span></div>
+        </div>
         <canvas id="gameCanvas" width="400" height="500"></canvas>
         
         <div class="controls-panel">
@@ -116,12 +125,15 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const timerVal = document.getElementById("timerVal");
+        const levelVal = document.getElementById("levelVal");
         const gameWindow = document.getElementById("gameWindow");
 
         let survivalTime = 0;
+        let currentLevel = 1;
         let gameOver = false;
         let gameInterval;
         let keys = { up: false, down: false, left: false, right: false };
+        let levelUpAnimTimer = 0; // Untuk animasi teks "LEVEL UP"
 
         // Karakter Pemain (Manusia Senter)
         const player = {
@@ -134,6 +146,7 @@
         const sukutyi = {
             x: 30, y: 30,
             size: 20, speed: 2.2,
+            baseSize: 20, // Ukuran awal untuk kalkulasi level
             color: "#ff3333",
             glow: 0
         };
@@ -150,7 +163,6 @@
             const btn = document.getElementById(id);
             btn.addEventListener("touchstart", (e) => { e.preventDefault(); keys[key] = true; checkRestart(); });
             btn.addEventListener("touchend", () => keys[key] = false);
-            // Support juga buat mouse klik PC
             btn.addEventListener("mousedown", () => { keys[key] = true; checkRestart(); });
             btn.addEventListener("mouseup", () => keys[key] = false);
             btn.addEventListener("mouseleave", () => keys[key] = false);
@@ -183,14 +195,37 @@
         function resetGame() {
             player.x = 200; player.y = 250;
             sukutyi.x = 30; sukutyi.y = 30;
+            sukutyi.size = sukutyi.baseSize;
             sukutyi.speed = 2.2;
             survivalTime = 0;
+            currentLevel = 1;
+            levelUpAnimTimer = 0;
             timerVal.innerText = survivalTime;
+            levelVal.innerText = currentLevel;
             gameOver = false;
             keys = { up: false, down: false, left: false, right: false };
             
             clearInterval(gameInterval);
-            gameInterval = setInterval(() => { if(!gameOver) { survivalTime++; timerVal.innerText = survivalTime; sukutyi.speed += 0.1; } }, 1000);
+            gameInterval = setInterval(() => { 
+                if(!gameOver) { 
+                    survivalTime++; 
+                    timerVal.innerText = survivalTime; 
+                    
+                    // Kecepatan hantu naik tiap detik secara pasif
+                    sukutyi.speed += 0.08; 
+
+                    // SISTEM LEVEL: Naik level tiap kelipatan 15 detik
+                    if (survivalTime % 15 === 0) {
+                        currentLevel++;
+                        levelVal.innerText = currentLevel;
+                        levelUpAnimTimer = 90; // Trigger teks Level Up selama 90 frame
+                        
+                        // Hantu bertambah cepat & bertambah besar secara permanen tiap naik level
+                        sukutyi.speed += 0.5;
+                        sukutyi.size = sukutyi.baseSize + (currentLevel * 2); 
+                    }
+                } 
+            }, 1000);
             
             requestAnimationFrame(update);
         }
@@ -198,30 +233,33 @@
         // Loop Game
         function update() {
             if (gameOver) {
-                // Tampilan Jumpscare / Game Over Screen
                 ctx.fillStyle = "rgba(10, 0, 0, 0.9)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 ctx.fillStyle = "#ff0000";
-                ctx.font = "bold 32px sans-serif";
+                ctx.font = "bold 28px sans-serif";
                 ctx.textAlign = "center";
-                ctx.fillText("SUKUTYI MENEMUKANMU!", canvas.width / 2, canvas.height / 2 - 30);
+                ctx.fillText("SUKUTYI MENEMUKANMU!", canvas.width / 2, canvas.height / 2 - 50);
+
+                ctx.fillStyle = "#ffff00";
+                ctx.font = "bold 20px monospace";
+                ctx.fillText(`Mencapai Level: ${currentLevel}`, canvas.width / 2, canvas.height / 2 - 10);
 
                 // Wajah hantu jumpscare simple abstrak
                 ctx.fillStyle = "#fff";
                 ctx.beginPath();
-                ctx.arc(canvas.width/2 - 40, canvas.height/2 + 40, 15, 0, Math.PI*2);
-                ctx.arc(canvas.width/2 + 40, canvas.height/2 + 40, 15, 0, Math.PI*2);
+                ctx.arc(canvas.width/2 - 40, canvas.height/2 + 50, 15, 0, Math.PI*2);
+                ctx.arc(canvas.width/2 + 40, canvas.height/2 + 50, 15, 0, Math.PI*2);
                 ctx.fill();
                 ctx.fillStyle = "#000";
                 ctx.beginPath();
-                ctx.arc(canvas.width/2 - 40, canvas.height/2 + 44, 6, 0, Math.PI*2);
-                ctx.arc(canvas.width/2 + 40, canvas.height/2 + 44, 6, 0, Math.PI*2);
+                ctx.arc(canvas.width/2 - 40, canvas.height/2 + 54, 6, 0, Math.PI*2);
+                ctx.arc(canvas.width/2 + 40, canvas.height/2 + 54, 6, 0, Math.PI*2);
                 ctx.fill();
 
                 ctx.fillStyle = "#888";
                 ctx.font = "14px monospace";
-                ctx.fillText("Tekan D-Pad Mana Saja untuk Coba Lagi", canvas.width / 2, canvas.height / 2 + 130);
+                ctx.fillText("Tekan D-Pad Mana Saja untuk Coba Lagi", canvas.width / 2, canvas.height / 2 + 140);
                 ctx.textAlign = "left";
                 return;
             }
@@ -232,7 +270,7 @@
             if (keys.left && player.x > player.size) player.x -= player.speed;
             if (keys.right && player.x < canvas.width - player.size) player.x += player.speed;
 
-            // 2. AI Hantu Sukutyi (Mengejar posisi player secara cerdas)
+            // 2. AI Hantu Sukutyi
             let dx = player.x - sukutyi.x;
             let dy = player.y - sukutyi.y;
             let distance = Math.sqrt(dx * dx + dy * dy);
@@ -242,25 +280,26 @@
                 sukutyi.y += (dy / distance) * sukutyi.speed;
             }
 
-            // 3. Ambil Item Energi (Jimat Penurun Kecepatan Hantu)
+            // 3. Ambil Item Energi
             let itemDist = Math.sqrt((player.x - item.x)**2 + (player.y - item.y)**2);
             if (itemDist < player.size + item.size) {
                 item.x = Math.random() * (canvas.width - 40) + 20;
                 item.y = Math.random() * (canvas.height - 40) + 20;
-                sukutyi.speed = Math.max(1.5, sukutyi.speed - 0.8); // Bikin hantu melambat
+                // Bikin hantu melambat, batas lambatnya disesuaikan dengan level sekarang
+                sukutyi.speed = Math.max(1.5 + (currentLevel * 0.2), sukutyi.speed - 1.0); 
             }
 
             // 4. Deteksi Tertangkap (Game Over)
             if (distance < player.size + sukutyi.size) {
                 gameOver = true;
-                if (navigator.vibrate) navigator.vibrate([200, 100, 200]); // Getar HP pas tertangkap
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]); 
             }
 
             // 5. PROSES RENDERING GRAFIK
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Efek Flashlight / Senter Player (Suasana Horor Gelap)
-            let gradient = ctx.createRadialGradient(player.x, player.y, 10, player.x, player.y, 130);
+            // Efek Flashlight / Senter Player
+            let gradient = ctx.createRadialGradient(player.x, player.y, 10, player.x, player.y, 135);
             gradient.addColorStop(0, 'rgba(255, 255, 230, 0.35)');
             gradient.addColorStop(1, 'rgba(5, 5, 10, 0.98)');
             ctx.fillStyle = gradient;
@@ -276,7 +315,7 @@
             ctx.shadowColor = player.color; ctx.shadowBlur = 8;
             ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
 
-            // Render Hantu Sukutyi (Merah Berpijar Horor)
+            // Render Hantu Sukutyi
             sukutyi.glow += 0.1;
             let dynamicGlow = Math.abs(Math.sin(sukutyi.glow)) * 15 + 5;
             ctx.fillStyle = sukutyi.color;
@@ -285,11 +324,23 @@
             ctx.arc(sukutyi.x, sukutyi.y, sukutyi.size, 0, Math.PI*2);
             ctx.fill();
             
-            // Efek Mata Merah Sukutyi
+            // Efek Mata Merah Sukutyi (Posisinya otomatis menyesuaikan ukuran hantu)
             ctx.shadowBlur = 0;
             ctx.fillStyle = "#ffffff";
-            ctx.fillRect(sukutyi.x - 7, sukutyi.y - 4, 4, 4);
-            ctx.fillRect(sukutyi.x + 3, sukutyi.y - 4, 4, 4);
+            ctx.fillRect(sukutyi.x - (sukutyi.size/3), sukutyi.y - 4, 4, 4);
+            ctx.fillRect(sukutyi.x + (sukutyi.size/3) - 4, sukutyi.y - 4, 4, 4);
+
+            // Teks Kilatan "LEVEL UP!" jika naik level
+            if (levelUpAnimTimer > 0) {
+                levelUpAnimTimer--;
+                ctx.fillStyle = `rgba(255, 255, 0, ${levelUpAnimTimer / 90})`;
+                ctx.font = "bold 28px 'Courier New'";
+                ctx.textAlign = "center";
+                ctx.shadowColor = "#ffff00"; ctx.shadowBlur = 10;
+                ctx.fillText(`LEVEL ${currentLevel}!`, canvas.width / 2, 100);
+                ctx.shadowBlur = 0;
+                ctx.textAlign = "left";
+            }
 
             requestAnimationFrame(update);
         }
