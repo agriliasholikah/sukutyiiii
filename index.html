@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <title>Sukutyi Escape - Mobile Edition</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body {
+            background: #050508;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            flex-direction: column;
+        }
+        .game-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            height: 100%;
+            max-height: 750px;
+            background: #111;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #ff3333;
+        }
+        canvas {
+            width: 100%;
+            flex-grow: 1;
+            background: #0a0a0f;
+            display: block;
+        }
+        /* Panel Kontrol D-Pad untuk HP */
+        .controls-panel {
+            height: 220px;
+            background: #15151c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            border-top: 3px solid #ff3333;
+        }
+        .dpad {
+            position: relative;
+            width: 160px;
+            height: 160px;
+        }
+        .dbtn {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 51, 51, 0.3);
+            border: 3px solid #ff3333;
+            border-radius: 12px;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 10px rgba(255,51,51,0.2);
+        }
+        .dbtn:active {
+            background: rgba(255, 51, 51, 0.8);
+            transform: scale(0.9);
+        }
+        #btnUp    { top: 0; left: 55px; }
+        #btnDown  { bottom: 0; left: 55px; }
+        #btnLeft  { top: 55px; left: 0; }
+        #btnRight { top: 55px; right: 0; }
+
+        .score-ui {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: #ff3333;
+            font-size: 18px;
+            font-weight: bold;
+            background: rgba(0,0,0,0.6);
+            padding: 5px 12px;
+            border-radius: 4px;
+            border-left: 3px solid #ff3333;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container" id="gameWindow">
+        <div class="score-ui">WAKTU BERTAHAN: <span id="timerVal">0</span>s</div>
+        <canvas id="gameCanvas" width="400" height="500"></canvas>
+        
+        <div class="controls-panel">
+            <div class="dpad">
+                <div class="dbtn" id="btnUp">▲</div>
+                <div class="dbtn" id="btnLeft">◀</div>
+                <div class="dbtn" id="btnRight">▶</div>
+                <div class="dbtn" id="btnDown">▼</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const timerVal = document.getElementById("timerVal");
+        const gameWindow = document.getElementById("gameWindow");
+
+        let survivalTime = 0;
+        let gameOver = false;
+        let gameInterval;
+        let keys = { up: false, down: false, left: false, right: false };
+
+        // Karakter Pemain (Manusia Senter)
+        const player = {
+            x: 200, y: 250,
+            size: 16, speed: 4,
+            color: "#00ffff"
+        };
+
+        // Hantu Sukutyi (Pengejar)
+        const sukutyi = {
+            x: 30, y: 30,
+            size: 20, speed: 2.2,
+            color: "#ff3333",
+            glow: 0
+        };
+
+        // Koin Energi (Untuk memperlambat hantu sejenak)
+        const item = {
+            x: Math.random() * 360 + 20,
+            y: Math.random() * 460 + 20,
+            size: 10
+        };
+
+        // Touch Control D-Pad Setup
+        function setupTouchBtn(id, key) {
+            const btn = document.getElementById(id);
+            btn.addEventListener("touchstart", (e) => { e.preventDefault(); keys[key] = true; checkRestart(); });
+            btn.addEventListener("touchend", () => keys[key] = false);
+            // Support juga buat mouse klik PC
+            btn.addEventListener("mousedown", () => { keys[key] = true; checkRestart(); });
+            btn.addEventListener("mouseup", () => keys[key] = false);
+            btn.addEventListener("mouseleave", () => keys[key] = false);
+        }
+
+        setupTouchBtn("btnUp", "up");
+        setupTouchBtn("btnDown", "down");
+        setupTouchBtn("btnLeft", "left");
+        setupTouchBtn("btnRight", "right");
+
+        // Keyboard Support untuk PC
+        window.addEventListener("keydown", (e) => {
+            if(gameOver) { resetGame(); return; }
+            if(e.key === "ArrowUp" || e.key === "w") keys.up = true;
+            if(e.key === "ArrowDown" || e.key === "s") keys.down = true;
+            if(e.key === "ArrowLeft" || e.key === "a") keys.left = true;
+            if(e.key === "ArrowRight" || e.key === "d") keys.right = true;
+        });
+        window.addEventListener("keyup", (e) => {
+            if(e.key === "ArrowUp" || e.key === "w") keys.up = false;
+            if(e.key === "ArrowDown" || e.key === "s") keys.down = false;
+            if(e.key === "ArrowLeft" || e.key === "a") keys.left = false;
+            if(e.key === "ArrowRight" || e.key === "d") keys.right = false;
+        });
+
+        function checkRestart() {
+            if(gameOver) resetGame();
+        }
+
+        function resetGame() {
+            player.x = 200; player.y = 250;
+            sukutyi.x = 30; sukutyi.y = 30;
+            sukutyi.speed = 2.2;
+            survivalTime = 0;
+            timerVal.innerText = survivalTime;
+            gameOver = false;
+            keys = { up: false, down: false, left: false, right: false };
+            
+            clearInterval(gameInterval);
+            gameInterval = setInterval(() => { if(!gameOver) { survivalTime++; timerVal.innerText = survivalTime; sukutyi.speed += 0.1; } }, 1000);
+            
+            requestAnimationFrame(update);
+        }
+
+        // Loop Game
+        function update() {
+            if (gameOver) {
+                // Tampilan Jumpscare / Game Over Screen
+                ctx.fillStyle = "rgba(10, 0, 0, 0.9)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = "#ff0000";
+                ctx.font = "bold 32px sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillText("SUKUTYI MENEMUKANMU!", canvas.width / 2, canvas.height / 2 - 30);
+
+                // Wajah hantu jumpscare simple abstrak
+                ctx.fillStyle = "#fff";
+                ctx.beginPath();
+                ctx.arc(canvas.width/2 - 40, canvas.height/2 + 40, 15, 0, Math.PI*2);
+                ctx.arc(canvas.width/2 + 40, canvas.height/2 + 40, 15, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = "#000";
+                ctx.beginPath();
+                ctx.arc(canvas.width/2 - 40, canvas.height/2 + 44, 6, 0, Math.PI*2);
+                ctx.arc(canvas.width/2 + 40, canvas.height/2 + 44, 6, 0, Math.PI*2);
+                ctx.fill();
+
+                ctx.fillStyle = "#888";
+                ctx.font = "14px monospace";
+                ctx.fillText("Tekan D-Pad Mana Saja untuk Coba Lagi", canvas.width / 2, canvas.height / 2 + 130);
+                ctx.textAlign = "left";
+                return;
+            }
+
+            // 1. Pergerakan Player + Pembatas Dinding Canvas
+            if (keys.up && player.y > player.size) player.y -= player.speed;
+            if (keys.down && player.y < canvas.height - player.size) player.y += player.speed;
+            if (keys.left && player.x > player.size) player.x -= player.speed;
+            if (keys.right && player.x < canvas.width - player.size) player.x += player.speed;
+
+            // 2. AI Hantu Sukutyi (Mengejar posisi player secara cerdas)
+            let dx = player.x - sukutyi.x;
+            let dy = player.y - sukutyi.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > 0) {
+                sukutyi.x += (dx / distance) * sukutyi.speed;
+                sukutyi.y += (dy / distance) * sukutyi.speed;
+            }
+
+            // 3. Ambil Item Energi (Jimat Penurun Kecepatan Hantu)
+            let itemDist = Math.sqrt((player.x - item.x)**2 + (player.y - item.y)**2);
+            if (itemDist < player.size + item.size) {
+                item.x = Math.random() * (canvas.width - 40) + 20;
+                item.y = Math.random() * (canvas.height - 40) + 20;
+                sukutyi.speed = Math.max(1.5, sukutyi.speed - 0.8); // Bikin hantu melambat
+            }
+
+            // 4. Deteksi Tertangkap (Game Over)
+            if (distance < player.size + sukutyi.size) {
+                gameOver = true;
+                if (navigator.vibrate) navigator.vibrate([200, 100, 200]); // Getar HP pas tertangkap
+            }
+
+            // 5. PROSES RENDERING GRAFIK
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Efek Flashlight / Senter Player (Suasana Horor Gelap)
+            let gradient = ctx.createRadialGradient(player.x, player.y, 10, player.x, player.y, 130);
+            gradient.addColorStop(0, 'rgba(255, 255, 230, 0.35)');
+            gradient.addColorStop(1, 'rgba(5, 5, 10, 0.98)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Render Item Jimat (Hijau Menyala)
+            ctx.fillStyle = "#00ff00";
+            ctx.shadowColor = "#00ff00"; ctx.shadowBlur = 10;
+            ctx.beginPath(); ctx.arc(item.x, item.y, item.size, 0, Math.PI*2); ctx.fill();
+
+            // Render Player (Manusia)
+            ctx.fillStyle = player.color;
+            ctx.shadowColor = player.color; ctx.shadowBlur = 8;
+            ctx.beginPath(); ctx.arc(player.x, player.y, player.size, 0, Math.PI*2); ctx.fill();
+
+            // Render Hantu Sukutyi (Merah Berpijar Horor)
+            sukutyi.glow += 0.1;
+            let dynamicGlow = Math.abs(Math.sin(sukutyi.glow)) * 15 + 5;
+            ctx.fillStyle = sukutyi.color;
+            ctx.shadowColor = "#ff0000"; ctx.shadowBlur = dynamicGlow;
+            ctx.beginPath();
+            ctx.arc(sukutyi.x, sukutyi.y, sukutyi.size, 0, Math.PI*2);
+            ctx.fill();
+            
+            // Efek Mata Merah Sukutyi
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(sukutyi.x - 7, sukutyi.y - 4, 4, 4);
+            ctx.fillRect(sukutyi.x + 3, sukutyi.y - 4, 4, 4);
+
+            requestAnimationFrame(update);
+        }
+
+        // Jalankan game otomatis di awal
+        resetGame();
+    </script>
+</body>
+</html>
